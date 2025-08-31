@@ -13,6 +13,7 @@ import '../providers/theme_provider.dart';
 import '../widgets/book_grid.dart';
 import '../services/book_persistence.dart';
 import 'reader_screen.dart';
+import '../widgets/book_bottom_popup_menu.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -256,59 +257,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _showBookOptions(Book book) async {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                book.title,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () async {
-                  // Logic to favorite the book
-                  // For example, update the lastReadPage or set a favorite field
-                  final updatedBook = book.copyWith(lastReadPage: 1); // Example logic
-                  await BookPersistenceService.updateBook(updatedBook);
-                  Navigator.of(context).pop();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Favorited "${book.title}"')),
-                    );
-                  }
-                },
-                child: const Text('Favorite'),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () async {
-                  // Logic to delete the book
-                  await _removeBook(book);
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Delete'),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(), // Close the bottom sheet
-                child: const Text('Cancel'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+
 
   Future<void> _openBookDialog(Book book) async {
-    // Show modal bottom sheet instead of pushing to ReaderScreen
-    _showBookOptions(book);
+    showBookOptions(context, _removeBook, book);
   }
 
   Widget _buildLibraryTab() {
@@ -351,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       child: BookGrid(
         books: _filteredBooks,
         onBookTap: _openBook,
-        onHoldBookTap: _showBookOptions,
+        onHoldBookTap: _openBookDialog,
       ),
     );
   }
@@ -370,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       child: BookGrid(
         books: favoriteBooks,
         onBookTap: _openBook,
-        onHoldBookTap: _showBookOptions,
+        onHoldBookTap: _openBookDialog,
       ),
     );
   }
