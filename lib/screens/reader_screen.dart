@@ -25,10 +25,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   double _progress = 0.0;
   ValueNotifier<int> currentPage = ValueNotifier<int>(1);
   final TextEditingController _searchController = TextEditingController();
+  late Book _currentBook;
 
   @override
   void initState() {
     super.initState();
+    _currentBook = widget.book;
     _loadPdf();
     currentPage = ValueNotifier<int>(_pdfViewerController.pageNumber);
     _pdfViewerController.addListener(() {
@@ -42,7 +44,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     setState(() => _isLoading = true);
 
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     if (mounted) {
       setState(() => _isLoading = false);
     }
@@ -72,15 +74,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   // TODO: Search implementation goes here...
                 },
               ) : Text(
-                widget.book.title,
+                _currentBook.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.search),
+                  icon: Icon(!_showSearchField ? Icons.search : Icons.cancel_outlined),
                   onPressed: () {
                     //_pdfViewerController.jumpToPage(5);
+                    setState(() {
+                      _showSearchField = !_showSearchField;
+                    });
                   },
                 ),
                 IconButton(
@@ -116,18 +121,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       // if (book.pageCount != details.document.pages.count) {
                       //   // Update the book's page count if needed
                       // }
-                      
+
                       // Jump to last read page
                       if (book.lastReadPage > 0) {
                         _pdfViewerController.jumpToPage(book.lastReadPage);
                       }
-                      
+
                       setState(() => _isLoading = false);
                     },
                     onPageChanged: (PdfPageChangedDetails details) {
                       // Update last read page
                       if (widget.book.lastReadPage != details.newPageNumber && widget.book.lastReadPage < details.newPageNumber) {
                         BookPersistenceService.updateLastReadPage(widget.book.id, details.newPageNumber);
+                        _currentBook = _currentBook.copyWith(lastReadPage: details.newPageNumber);
                       }
                     },
                   ),

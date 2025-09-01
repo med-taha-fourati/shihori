@@ -10,6 +10,7 @@ class Book {
   final int lastReadPage;
   final DateTime lastOpened;
   final DateTime dateAdded;
+  final bool isFavorite;
 
   Book({
     required this.id,
@@ -20,8 +21,10 @@ class Book {
     this.lastReadPage = 0,
     DateTime? lastOpened,
     DateTime? dateAdded,
+    required bool isFavorite
   })  : lastOpened = lastOpened ?? DateTime.now(),
-        dateAdded = dateAdded ?? DateTime.now();
+        dateAdded = dateAdded ?? DateTime.now(),
+        isFavorite = isFavorite ?? false;
 
   String get fileName => path.basename(filePath);
   String get fileExtension => path.extension(filePath).toLowerCase();
@@ -46,6 +49,7 @@ class Book {
     int? lastReadPage,
     DateTime? lastOpened,
     DateTime? dateAdded,
+    bool? isFavorite
   }) {
     return Book(
       id: id ?? this.id,
@@ -56,6 +60,7 @@ class Book {
       lastReadPage: lastReadPage ?? this.lastReadPage,
       lastOpened: lastOpened ?? this.lastOpened,
       dateAdded: dateAdded ?? this.dateAdded,
+      isFavorite: isFavorite ?? this.isFavorite
     );
   }
 
@@ -69,6 +74,7 @@ class Book {
       'lastReadPage': lastReadPage,
       'lastOpened': lastOpened.toIso8601String(),
       'dateAdded': dateAdded.toIso8601String(),
+      'isFavorite': isFavorite
     };
   }
 
@@ -82,6 +88,7 @@ class Book {
       lastReadPage: map['lastReadPage'] ?? 0,
       lastOpened: DateTime.parse(map['lastOpened']),
       dateAdded: DateTime.parse(map['dateAdded']),
+      isFavorite: map['isFavorite'] ?? false
     );
   }
 }

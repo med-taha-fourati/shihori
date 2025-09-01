@@ -1,10 +1,12 @@
 import 'package:Shihori/models/book.dart';
+import 'package:Shihori/services/book_persistence.dart';
 import 'package:flutter/material.dart';
 
 Future<void> showBookOptions(
     BuildContext context,
     Function(Book) _removeBook,
-    Book book
+    Book book,
+    Function(Book) _updateBook
     ) async {
   showModalBottomSheet(
     context: context,
@@ -23,8 +25,12 @@ Future<void> showBookOptions(
             ),
             ListTile(
               onTap: () async {
+                await BookPersistenceService.favoriteABook(book.id);
+                final updatedBook = book.copyWith(isFavorite: !book.isFavorite);
+                _updateBook(updatedBook);
+                Navigator.of(context).pop();
               },
-              title: const Text('Favorite'),
+              title: Text(!book.isFavorite ? 'Add to Favorites' : 'Remove from Favorites'),
             ),
             ListTile(
               onTap: () async {

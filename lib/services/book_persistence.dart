@@ -97,6 +97,18 @@ class BookPersistenceService {
     return count;
   }
 
+  static Future<void> favoriteABook(String id) async {
+    final books = await loadBooks();
+
+    final existingBook = books.indexWhere((book) => book.id == id);
+
+    books[existingBook] = books[existingBook].copyWith(
+      isFavorite: !books[existingBook].isFavorite
+    );
+
+    await saveBooks(books);
+  }
+
   static Future<void> addBook(Book book) async {
     final books = await loadBooks();
 

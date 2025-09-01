@@ -114,6 +114,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           lastOpened: DateTime.now(),
           pageCount: pageCount,
           lastReadPage: 1,
+          isFavorite: false
         );
 
         await BookPersistenceService.addBook(newBook);
@@ -227,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         await BookPersistenceService.removeBook(book.id);
         setState(() {
           _books.removeWhere((b) => b.id == book.id);
-          _filterBooks(_searchController.text);
+          _refreshLibrary();
         });
 
         if (mounted) {
@@ -250,17 +251,25 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Future<void> _refreshLibrary() async {
     await _loadBooks();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Library refreshed')),
-      );
-    }
+    // if (mounted) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('Library refreshed')),
+    //   );
+    // }
   }
 
 
 
   Future<void> _openBookDialog(Book book) async {
-    showBookOptions(context, _removeBook, book);
+    showBookOptions(context, _removeBook, book, (updatedBook) {
+        final index = _books.indexWhere((b) => b.id == book.id);
+        if (index != -1) {
+          setState(() {
+            _books[index] = updatedBook;
+            _filterBooks(_searchController.text);
+          });
+        }
+    });
   }
 
   Widget _buildLibraryTab() {
@@ -309,11 +318,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildFavoritesTab() {
-    final favoriteBooks = _filteredBooks.where((book) => book.lastReadPage > 0).toList();
+    final favoriteBooks = _filteredBooks.where((book) => book.isFavorite == true).toList();
 
     if (favoriteBooks.isEmpty) {
       return const Center(
-        child: Text('No books in progress'),
+        child: Text('Your favorited books will appear here'),
       );
     }
 
