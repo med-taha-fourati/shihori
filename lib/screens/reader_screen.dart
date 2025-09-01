@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:Shihori/services/book_persistence.dart';
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
@@ -20,18 +21,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
   final PdfViewerController _pdfViewerController = PdfViewerController();
   bool _isLoading = true;
   bool _showAppBar = true;
+  bool _showSearchField = false;
   double _progress = 0.0;
+  ValueNotifier<int> currentPage = ValueNotifier<int>(1);
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadPdf();
+    currentPage = ValueNotifier<int>(_pdfViewerController.pageNumber);
+    _pdfViewerController.addListener(() {
+      if (_pdfViewerController.pageNumber != currentPage.value) {
+        currentPage.value = _pdfViewerController.pageNumber - 1;
+      }
+    });
   }
 
   Future<void> _loadPdf() async {
     setState(() => _isLoading = true);
-    
-    // Simulate loading delay
+
     await Future.delayed(const Duration(milliseconds: 500));
     
     if (mounted) {
@@ -50,11 +59,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final currentPage = ValueNotifier<int>(_pdfViewerController.pageNumber);
     return Scaffold(
       appBar: _showAppBar
           ? AppBar(
-              title: Text(
+              title: _showSearchField ? TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  border: UnderlineInputBorder(),
+                  hintText: "Enter your search entry..."
+                ),
+                onChanged: (_) {
+                  // TODO: Search implementation goes here...
+                },
+              ) : Text(
                 widget.book.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -63,7 +80,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 IconButton(
                   icon: const Icon(Icons.search),
                   onPressed: () {
-                    _pdfViewerController.jumpToPage(5);
+                    //_pdfViewerController.jumpToPage(5);
                   },
                 ),
                 IconButton(
@@ -96,9 +113,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     onDocumentLoaded: (PdfDocumentLoadedDetails details) {
                       // Update book page count
                       final book = widget.book;
-                      if (book.pageCount != details.document.pages.count) {
-                        // Update the book's page count if needed
-                      }
+                      // if (book.pageCount != details.document.pages.count) {
+                      //   // Update the book's page count if needed
+                      // }
                       
                       // Jump to last read page
                       if (book.lastReadPage > 0) {
@@ -109,8 +126,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     },
                     onPageChanged: (PdfPageChangedDetails details) {
                       // Update last read page
-                      if (widget.book.lastReadPage != details.newPageNumber) {
-                        // Update the book's last read page
+                      if (widget.book.lastReadPage != details.newPageNumber && widget.book.lastReadPage < details.newPageNumber) {
+                        BookPersistenceService.updateLastReadPage(widget.book.id, details.newPageNumber);
                       }
                     },
                   ),
@@ -172,19 +189,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             _pdfViewerController.previousPage();
                           },
                         ),
-                        Expanded(
-                          child: Center(
-                            child: ValueListenableBuilder<int>(
-                              valueListenable: currentPage,
-                              builder: (context, pageNumber, _) {
-                                return Text(
-                                  '${pageNumber + 1} / ${_pdfViewerController.pageCount}',
-                                  style: theme.textTheme.bodyMedium,
-                                );
-                              },
+                          Expanded(
+                            child: Center(
+                              child: ValueListenableBuilder<int>(
+                                valueListenable: currentPage,
+                                builder: (context, pageNumber, _) {
+                                  return Text(
+                                    '${pageNumber + 1} / ${_pdfViewerController.pageCount}',
+                                    style: theme.textTheme.bodyMedium,
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                        ),
                         IconButton(
                           icon: const Icon(Icons.chevron_right),
                           onPressed: () {
