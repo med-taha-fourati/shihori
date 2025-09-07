@@ -110,10 +110,45 @@ class _ReaderScreenState extends State<ReaderScreen> {
                     });
                   },
                 ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () {
-                    // TODO: Show more options
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'bookmark':
+                        setState(() {
+                          if (_currentBook.bookmarked == currentPage.value) {
+                            _currentBook = _currentBook.copyWith(bookmarked: null);
+                          } else {
+                            _currentBook = _currentBook.copyWith(bookmarked: currentPage.value);
+                          }
+                        });
+                        break;
+                    }
+                  },
+                  itemBuilder: (BuildContext context) {
+                    return [
+                      PopupMenuItem(
+                        enabled: _currentBook.bookmarked != null,
+                        value: 'bookmark',
+                        child: Text(
+                          _currentBook.bookmarked != null
+                              ? "Go to last Bookmarked Page"
+                              : "No bookmarks yet",
+                          style: TextStyle(
+                            fontStyle: _currentBook.bookmarked == null ? FontStyle.italic : FontStyle.normal,
+                            color: _currentBook.bookmarked != null ? colorScheme.primary : colorScheme.primary.withAlpha(100)
+                          )
+                        ),
+                        onTap: () {
+                          setState(() {
+                            if (_currentBook.bookmarked != null) {
+                              _pdfViewerController.jumpToPage(_currentBook.bookmarked!);
+                            } else {
+                              return;
+                            }
+                          });
+                        },
+                      ),
+                    ];
                   },
                 ),
               ],
