@@ -15,6 +15,8 @@ import '../services/book_persistence.dart';
 import 'reader_screen.dart';
 import '../widgets/book_bottom_popup_menu.dart';
 
+import '../providers/helper_methods.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -60,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         _isLoading = false;
       });
 
-      print('Loaded ${_books.length} books from storage');
+      debugPrint('Loaded ${_books.length} books from storage');
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -109,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         final fileName = path.basename(file.path);
         final newBook = Book(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          title: fileName.replaceAll('.pdf', ''),
+          title: cleanFilename(fileName.replaceAll('.pdf', '')),
           filePath: file.path,
           lastOpened: DateTime.now(),
           pageCount: pageCount,

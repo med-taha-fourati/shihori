@@ -60,6 +60,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    bool showBookmark = false;
+    if (_currentBook.bookmarked != null) {
+      showBookmark = _currentBook.bookmarked == currentPage.value;
+    }
 
     return Scaffold(
       appBar: _showAppBar
@@ -89,9 +93,21 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.bookmark_border),
+                  icon: Icon(showBookmark == false ? Icons.bookmark_border : Icons.bookmark_outlined),
                   onPressed: () {
                     // TODO: Implement bookmark functionality
+                    //
+                    setState(() {
+                      if (_currentBook.bookmarked != null && _currentBook.bookmarked == currentPage.value) {
+                        _currentBook.bookmarked = null;
+                        showBookmark = false;
+                      } else {
+                        _currentBook.bookmarked = currentPage.value;
+                        showBookmark = true;
+                      }
+                      debugPrint("${showBookmark} showBookmark");
+                      debugPrint("${_currentBook.bookmarked}");
+                    });
                   },
                 ),
                 IconButton(
@@ -135,6 +151,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
                         BookPersistenceService.updateLastReadPage(widget.book.id, details.newPageNumber);
                         _currentBook = _currentBook.copyWith(lastReadPage: details.newPageNumber);
                       }
+
+                      setState(() {
+                        debugPrint("this is being accessed ${currentPage.value}");
+                        if (_currentBook.bookmarked == null) {
+                          showBookmark = false;
+                        } else {
+                          showBookmark = _currentBook.bookmarked == currentPage
+                              .value;
+                        }
+                      });
                     },
                   ),
               ],
