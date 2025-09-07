@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../models/book.dart';
+import '../services/page_persistence.dart';
 
 class ReaderScreen extends StatefulWidget {
   final Book book;
@@ -60,6 +61,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    bool showBookmark = false;
+    if (_currentBook.bookmarked != null) {
+      showBookmark = _currentBook.bookmarked == currentPage.value;
+    }
 
     return Scaffold(
       appBar: _showAppBar
@@ -89,15 +94,62 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.bookmark_border),
+                  icon: Icon(showBookmark == false ? Icons.bookmark_border : Icons.bookmark_outlined),
                   onPressed: () {
                     // TODO: Implement bookmark functionality
+                    //
+                    setState(() {
+                      if (_currentBook.bookmarked != null && _currentBook.bookmarked == currentPage.value) {
+                        _currentBook.bookmarked = null;
+                        showBookmark = false;
+                      } else {
+                        _currentBook.bookmarked = currentPage.value;
+                        showBookmark = true;
+                      }
+                      debugPrint("${showBookmark} showBookmark");
+                      debugPrint("${_currentBook.bookmarked}");
+                    });
                   },
                 ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () {
-                    // TODO: Show more options
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'bookmark':
+                        setState(() {
+                          if (_currentBook.bookmarked == currentPage.value) {
+                            _currentBook = _currentBook.copyWith(bookmarked: null);
+                          } else {
+                            _currentBook = _currentBook.copyWith(bookmarked: currentPage.value);
+                          }
+                        });
+                        break;
+                    }
+                  },
+                  itemBuilder: (BuildContext context) {
+                    return [
+                      PopupMenuItem(
+                        enabled: _currentBook.bookmarked != null,
+                        value: 'bookmark',
+                        child: Text(
+                          _currentBook.bookmarked != null
+                              ? "Go to last Bookmarked Page"
+                              : "No bookmarks yet",
+                          style: TextStyle(
+                            fontStyle: _currentBook.bookmarked == null ? FontStyle.italic : FontStyle.normal,
+                            color: _currentBook.bookmarked != null ? colorScheme.primary : colorScheme.primary.withAlpha(100)
+                          )
+                        ),
+                        onTap: () {
+                          setState(() {
+                            if (_currentBook.bookmarked != null) {
+                              _pdfViewerController.jumpToPage(_currentBook.bookmarked!);
+                            } else {
+                              return;
+                            }
+                          });
+                        },
+                      ),
+                    ];
                   },
                 ),
               ],
@@ -129,12 +181,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                       setState(() => _isLoading = false);
                     },
-                    onPageChanged: (PdfPageChangedDetails details) {
+                    onPageChanged: (PdfPageChangedDetails details) async {
                       // Update last read page
                       if (widget.book.lastReadPage != details.newPageNumber && widget.book.lastReadPage < details.newPageNumber) {
                         BookPersistenceService.updateLastReadPage(widget.book.id, details.newPageNumber);
                         _currentBook = _currentBook.copyWith(lastReadPage: details.newPageNumber);
                       }
+
+                      await PagePersistenceService.updatePagesReadToday(1);
+
+                      setState(() {
+                        debugPrint("this is being accessed ${currentPage.value}");
+                        if (_currentBook.bookmarked == null) {
+                          showBookmark = false;
+                        } else {
+                          showBookmark = _currentBook.bookmarked == currentPage
+                              .value;
+                        }
+                      });
                     },
                   ),
               ],
