@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 class ReadingHeatmap extends StatelessWidget {
@@ -10,14 +12,13 @@ class ReadingHeatmap extends StatelessWidget {
     required this.totalDays
   });
 
-  Color getColorForPages(int pages, BuildContext context) {
+  Color getColorForPages(int pages, int maxPages, BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    if (pages == 0) return colorScheme.primary.withAlpha(50);
-    if (pages < 5) return colorScheme.primary.withAlpha(100);
-    if (pages < 10) return colorScheme.primary.withAlpha(300);
-    if (pages < 20) return colorScheme.primary.withAlpha(500);
-    return colorScheme.primary;
+    double factor = (pages / maxPages).clamp(0.0, 1.0);
+    int alpha = (60 + (factor * (255 - 60))).toInt();
+
+    return colorScheme.primary.withAlpha(alpha);
   }
 
   List<DateTime> generateLastNDays(int days) {
@@ -37,6 +38,7 @@ class ReadingHeatmap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final days = generateLastNDays(totalDays);
+    final int maxPages = stats.isEmpty ? 1 : stats.values.reduce((elem1, elem2) => max(elem1, elem2));
 
     final weeks = <List<DateTime>>[];
     for (int i = 0; i < days.length; i += 7) {
@@ -60,7 +62,7 @@ class ReadingHeatmap extends StatelessWidget {
                   width: 16,
                   height: 16,
                   decoration: BoxDecoration(
-                    color: getColorForPages(pagesRead, context),
+                    color: getColorForPages(pagesRead, maxPages, context),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),

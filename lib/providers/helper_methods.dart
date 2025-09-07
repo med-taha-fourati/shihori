@@ -1,3 +1,3 @@
 String cleanFilename(String input) {
-  return input.replaceAll(RegExp(r'[-<>:/\\|?*]'), '');
+  return input.replaceAll(RegExp(r'[-<>@_:/\\|?*]'), '');
 }
