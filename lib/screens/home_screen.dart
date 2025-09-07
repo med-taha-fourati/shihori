@@ -9,7 +9,9 @@ import 'package:file_selector/file_selector.dart';
 import 'package:path/path.dart' as path;
 
 import '../models/book.dart';
+import '../models/profile.dart';
 import '../providers/theme_provider.dart';
+import '../services/page_persistence.dart';
 import '../widgets/book_grid.dart';
 import '../services/book_persistence.dart';
 import 'reader_screen.dart';
@@ -33,6 +35,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   List<Book> _books = [];
   List<Book> _filteredBooks = [];
 
+  Profile? _profile;
+  bool _isProfileLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 300),
     );
     _loadBooks();
+    _loadProfile();
   }
 
   @override
@@ -73,6 +79,24 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
         );
       }
+    }
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() => _isProfileLoading = true);
+
+    final loadedProfile = await PagePersistenceService.loadProfile();
+
+    setState(() {
+      _profile = loadedProfile;
+      _isProfileLoading = false;
+    });
+
+    if (_profile == null) {
+      final defaultProfile = Profile(id: DateTime.now().millisecondsSinceEpoch.toString(), pagesReadToday: 0);
+      await PagePersistenceService.saveProfile(defaultProfile);
+
+      setState(() => _profile = defaultProfile);
     }
   }
 
@@ -227,9 +251,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       );
 
       if (confirmed == true) {
+        if (book.lastReadPage > 0) {
+          await PagePersistenceService.updatePagesReadToday(-book.lastReadPage);
+        }
         await BookPersistenceService.removeBook(book.id);
         setState(() {
           _books.removeWhere((b) => b.id == book.id);
+
           _refreshLibrary();
         });
 

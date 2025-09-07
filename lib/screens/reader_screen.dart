@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../models/book.dart';
+import '../services/page_persistence.dart';
 
 class ReaderScreen extends StatefulWidget {
   final Book book;
@@ -180,12 +181,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
                       setState(() => _isLoading = false);
                     },
-                    onPageChanged: (PdfPageChangedDetails details) {
+                    onPageChanged: (PdfPageChangedDetails details) async {
                       // Update last read page
                       if (widget.book.lastReadPage != details.newPageNumber && widget.book.lastReadPage < details.newPageNumber) {
                         BookPersistenceService.updateLastReadPage(widget.book.id, details.newPageNumber);
                         _currentBook = _currentBook.copyWith(lastReadPage: details.newPageNumber);
                       }
+
+                      await PagePersistenceService.updatePagesReadToday(1);
 
                       setState(() {
                         debugPrint("this is being accessed ${currentPage.value}");
