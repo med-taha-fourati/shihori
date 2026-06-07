@@ -22,11 +22,10 @@ class Book {
     this.lastReadPage = 0,
     DateTime? lastOpened,
     DateTime? dateAdded,
-    required bool isFavorite,
+    required this.isFavorite,
     this.bookmarked
   })  : lastOpened = lastOpened ?? DateTime.now(),
-        dateAdded = dateAdded ?? DateTime.now(),
-        isFavorite = isFavorite ?? false;
+        dateAdded = dateAdded ?? DateTime.now();
 
   String get fileName => path.basename(filePath);
   String get fileExtension => path.extension(filePath).toLowerCase();
@@ -78,7 +77,7 @@ class Book {
       'lastReadPage': lastReadPage,
       'lastOpened': lastOpened.toIso8601String(),
       'dateAdded': dateAdded.toIso8601String(),
-      'isFavorite': isFavorite,
+      'isFavorite': isFavorite ? 1 : 0,
       'bookmarked': bookmarked
     };
   }
@@ -93,7 +92,7 @@ class Book {
       lastReadPage: map['lastReadPage'] ?? 0,
       lastOpened: DateTime.parse(map['lastOpened']),
       dateAdded: DateTime.parse(map['dateAdded']),
-      isFavorite: map['isFavorite'] ?? false,
+      isFavorite: map['isFavorite'] == true || map['isFavorite'] == 1,
       bookmarked: map['bookmarked']
     );
   }

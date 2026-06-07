@@ -1,57 +1,20 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
-
+import 'package:sqflite/sqflite.dart';
+import 'database_helper.dart';
 import '../models/profile.dart';
 
 class PagePersistenceService {
-  static const String _configFileName = 'profile.json';
-  static const String _profileKey = 'profile';
-
-  static const String _historyFileName = 'history.json';
-
-  static Future<String> get _configPath async {
-    final directory = await getApplicationDocumentsDirectory();
-    return path.join(directory.path, _configFileName);
-  }
-
-  static Future<File> get _configFile async {
-    final configPath = await _configPath;
-    return File(configPath);
-  }
-
-  static Future<void> _createEmptyConfig() async {
-    final file = await _configFile;
-    final emptyConfig = {
-      _profileKey: {
-        'id': 'a', // Temporary default ID as i do not know what the fuck to change it to
-        'pagesReadToday': 0,
-      }
-    };
-    await file.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(emptyConfig),
-    );
-  }
+  // SQLite helper instance
+  static final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
   static Future<Profile?> loadProfile() async {
     try {
-      final file = await _configFile;
-
-      if (!await file.exists()) {
-        await _createEmptyConfig();
-        return null;
-      }
-
-      final contents = await file.readAsString();
-      final configData = json.decode(contents) as Map<String, dynamic>;
-
-      final profileData = configData[_profileKey] as Map<String, dynamic>?;
-      if (profileData == null) return null;
-
-      return Profile.fromMap(profileData);
+      final db = await _dbHelper.database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        _dbHelper.profileTable,
+      );
+      if (maps.isEmpty) return null;
+      return Profile.fromMap(maps.first);
     } catch (e) {
       debugPrint('Error loading profile: $e');
       return null;
@@ -60,18 +23,11 @@ class PagePersistenceService {
 
   static Future<void> saveProfile(Profile profile) async {
     try {
-      final file = await _configFile;
-
-      Map<String, dynamic> configData = {};
-      if (await file.exists()) {
-        final contents = await file.readAsString();
-        configData = json.decode(contents) as Map<String, dynamic>;
-      }
-
-      configData[_profileKey] = profile.toMap();
-
-      await file.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(configData),
+      final db = await _dbHelper.database;
+      await db.insert(
+        _dbHelper.profileTable,
+        profile.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (e) {
       debugPrint('Error saving profile: $e');
@@ -79,50 +35,57 @@ class PagePersistenceService {
     }
   }
 
-  static Future<String> get _historyPath async {
-    final directory = await getApplicationDocumentsDirectory();
-    return path.join(directory.path, _historyFileName);
-  }
-
-  static Future<File> get _historyFile async {
-    final historyPath = await _historyPath;
-    return File(historyPath);
-  }
-
   static Future<Map<String, int>> loadHistory() async {
-    final file = await _historyFile;
-    if (!await file.exists()) {
-      await _createEmptyHistory();
-      return {};
-    }
-
-    final contents = await file.readAsString();
-    final Map<String, dynamic> data = json.decode(contents);
-    return data.map((key, value) => MapEntry(key, value as int));
-  }
-
-  static Future<void> _createEmptyHistory() async {
-    final file = await _historyFile;
-    await file.writeAsString(const JsonEncoder.withIndent('  ').convert({}));
+    final db = await _dbHelper.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      _dbHelper.historyTable,
+    );
+    return {
+      for (var map in maps) map['date'] as String: map['pagesRead'] as int,
+    };
   }
 
   static Future<void> saveHistory(Map<String, int> history) async {
-    final file = await _historyFile;
-    await file.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(history),
-      flush: true,
-    );
+    final db = await _dbHelper.database;
+    final batch = db.batch();
+    batch.delete(_dbHelper.historyTable);
+    for (var entry in history.entries) {
+      batch.insert(
+        _dbHelper.historyTable,
+        {'date': entry.key, 'pagesRead': entry.value},
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   static Future<void> updatePagesReadToday(int pages) async {
-    final history = await loadHistory();
-
+    final db = await _dbHelper.database;
     final today = DateTime.now();
     final todayKey = _formatDate(today);
 
-    history[todayKey] = (history[todayKey] ?? 0) + pages;
+    // Check if today's entry exists
+    final existing = await db.query(
+      _dbHelper.historyTable,
+      where: 'date = ?',
+      whereArgs: [todayKey],
+    );
 
-    await saveHistory(history);
+    if (existing.isEmpty) {
+      // Insert new entry
+      await db.insert(
+        _dbHelper.historyTable,
+        {'date': todayKey, 'pagesRead': pages},
+      );
+    } else {
+      // Update existing entry
+      final currentPages = existing.first['pagesRead'] as int;
+      await db.update(
+        _dbHelper.historyTable,
+        {'pagesRead': currentPages + pages},
+        where: 'date = ?',
+        whereArgs: [todayKey],
+      );
+    }
   }
 
   static String _formatDate(DateTime date) {

@@ -52,6 +52,8 @@ dependencies:
   uuid: ^4.0.0
   cached_network_image: ^3.3.1
   shared_preferences: ^2.5.3
+  # SQLite database
+  sqflite: ^2.3.0
 
 dev_dependencies:
   flutter_test:

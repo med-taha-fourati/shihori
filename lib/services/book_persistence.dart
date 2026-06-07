@@ -1,41 +1,19 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+import 'database_helper.dart';
 import 'package:Shihori/models/book.dart';
 
 class BookPersistenceService {
-  static const String _configFileName = 'config.json';
-  static const String _booksKey = 'books';
-
-  static Future<String> get _configPath async {
-    final directory = await getApplicationDocumentsDirectory();
-    return path.join(directory.path, _configFileName);
-  }
-
-  static Future<File> get _configFile async {
-    final configPath = await _configPath;
-    return File(configPath);
-  }
+  // SQLite helper instance
+  static final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
   static Future<List<Book>> loadBooks() async {
     try {
-      final file = await _configFile;
-
-      if (!await file.exists()) {
-        await _createEmptyConfig();
-        return [];
-      }
-
-      final contents = await file.readAsString();
-      final configData = json.decode(contents) as Map<String, dynamic>;
-
-      final booksData = configData[_booksKey] as List<dynamic>?;
-      if (booksData == null) return [];
-
-      return booksData
-          .map((bookMap) => Book.fromMap(bookMap as Map<String, dynamic>))
-          .toList();
+      final db = await _dbHelper.database;
+      final List<Map<String, dynamic>> maps = await db.query(_dbHelper.booksTable);
+      return List.generate(maps.length, (i) => Book.fromMap(maps[i]));
     } catch (e) {
       print('Error loading books: $e');
       return [];
@@ -43,24 +21,14 @@ class BookPersistenceService {
   }
 
   static Future<void> saveBooks(List<Book> books) async {
-    try {
-      final file = await _configFile;
-
-      Map<String, dynamic> configData = {};
-      if (await file.exists()) {
-        final contents = await file.readAsString();
-        configData = json.decode(contents) as Map<String, dynamic>;
-      }
-
-      configData[_booksKey] = books.map((book) => book.toMap()).toList();
-
-      await file.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(configData),
-      );
-    } catch (e) {
-      print('Error saving books: $e');
-      throw Exception('Failed to save books: $e');
+    final db = await _dbHelper.database;
+    // Replace existing data with new list
+    final batch = db.batch();
+    batch.delete(_dbHelper.booksTable);
+    for (var book in books) {
+      batch.insert(_dbHelper.booksTable, book.toMap());
     }
+    await batch.commit(noResult: true);
   }
 
   static Future<int> getTotalPages() async {
@@ -98,92 +66,95 @@ class BookPersistenceService {
   }
 
   static Future<void> favoriteABook(String id) async {
-    final books = await loadBooks();
-
-    final existingBook = books.indexWhere((book) => book.id == id);
-
-    books[existingBook] = books[existingBook].copyWith(
-      isFavorite: !books[existingBook].isFavorite
+    final db = await _dbHelper.database;
+    final List<Map<String, dynamic>> result = await db.query(
+      _dbHelper.booksTable,
+      columns: ['isFavorite'],
+      where: 'id = ?',
+      whereArgs: [id],
     );
-
-    await saveBooks(books);
+    if (result.isEmpty) return;
+    final current = result.first['isFavorite'] as int? ?? 0;
+    await db.update(
+      _dbHelper.booksTable,
+      {'isFavorite': current == 0 ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   static Future<void> addBook(Book book) async {
-    final books = await loadBooks();
-
-    final existingIndex = books.indexWhere((b) => b.id == book.id);
-    if (existingIndex != -1) {
+    final db = await _dbHelper.database;
+    // Ensure no duplicate
+    final existing = await db.query(
+      _dbHelper.booksTable,
+      where: 'id = ?',
+      whereArgs: [book.id],
+    );
+    if (existing.isNotEmpty) {
       throw Exception('Book with ID ${book.id} already exists');
     }
-
-    books.add(book);
-    await saveBooks(books);
+    await db.insert(_dbHelper.booksTable, book.toMap());
   }
 
   static Future<void> updateBook(Book updatedBook) async {
-    final books = await loadBooks();
-    final index = books.indexWhere((book) => book.id == updatedBook.id);
-
-    if (index == -1) {
+    final db = await _dbHelper.database;
+    final count = await db.update(
+      _dbHelper.booksTable,
+      updatedBook.toMap(),
+      where: 'id = ?',
+      whereArgs: [updatedBook.id],
+    );
+    if (count == 0) {
       throw Exception('Book with ID ${updatedBook.id} not found');
     }
-
-    books[index] = updatedBook;
-    await saveBooks(books);
   }
 
   static Future<void> updateLastReadPage(String bookId, int page) async {
-    final books = await loadBooks();
-    final index = books.indexWhere((book) => book.id == bookId);
-
-    if (index == -1) {
+    final db = await _dbHelper.database;
+    final count = await db.update(
+      _dbHelper.booksTable,
+      {
+        'lastReadPage': page,
+        'lastOpened': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [bookId],
+    );
+    if (count == 0) {
       throw Exception('Book with ID $bookId not found');
     }
-
-    books[index] = books[index].copyWith(
-      lastReadPage: page,
-      lastOpened: DateTime.now(),
-    );
-
-    await saveBooks(books);
   }
 
   static Future<void> removeBook(String bookId) async {
-    final books = await loadBooks();
-    books.removeWhere((book) => book.id == bookId);
-    await saveBooks(books);
+    final db = await _dbHelper.database;
+    await db.delete(
+      _dbHelper.booksTable,
+      where: 'id = ?',
+      whereArgs: [bookId],
+    );
   }
 
   static Future<Book?> getBookById(String bookId) async {
-    final books = await loadBooks();
-    try {
-      return books.firstWhere((book) => book.id == bookId);
-    } catch (e) {
-      return null;
-    }
+    final db = await _dbHelper.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      _dbHelper.booksTable,
+      where: 'id = ?',
+      whereArgs: [bookId],
+    );
+    if (maps.isEmpty) return null;
+    return Book.fromMap(maps.first);
   }
 
   static Future<void> clearAllBooks() async {
-    await saveBooks([]);
+    final db = await _dbHelper.database;
+    await db.delete(_dbHelper.booksTable);
   }
 
-  static Future<bool> configExists() async {
-    final file = await _configFile;
-    return await file.exists();
-  }
-
-  static Future<String> getConfigPath() async {
-    return await _configPath;
-  }
-
-  static Future<void> _createEmptyConfig() async {
-    final file = await _configFile;
-    final emptyConfig = {_booksKey: []};
-    await file.writeAsString(
-      const JsonEncoder.withIndent('  ').convert(emptyConfig),
-    );
-  }
+  // The following JSON‑based helpers are no longer needed with SQLite.
+  // They are kept as stubs for compatibility if any legacy code calls them.
+  static Future<bool> configExists() async => true;
+  static Future<String> getConfigPath() async => '';
 
   static Future<void> backupBooks({String backupFileName = 'books_backup.json'}) async {
     try {
