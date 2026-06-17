@@ -24,6 +24,15 @@ Future<void> showBookOptions(
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.edit),
+              onTap: () async {
+                Navigator.of(context).pop();
+                await _showRenameDialog(context, book, _updateBook);
+              },
+              title: const Text('Rename'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.favorite_border),
               onTap: () async {
                 await BookPersistenceService.favoriteABook(book.id);
                 final updatedBook = book.copyWith(isFavorite: !book.isFavorite);
@@ -33,8 +42,8 @@ Future<void> showBookOptions(
               title: Text(!book.isFavorite ? 'Add to Favorites' : 'Remove from Favorites'),
             ),
             ListTile(
+              leading: const Icon(Icons.delete),
               onTap: () async {
-                // Logic to delete the book
                 await _removeBook(book);
                 Navigator.of(context).pop();
               },
@@ -46,4 +55,60 @@ Future<void> showBookOptions(
       );
     },
   );
+}
+
+Future<void> _showRenameDialog(
+    BuildContext context,
+    Book book,
+    Function(Book) _updateBook
+    ) async {
+  final controller = TextEditingController(text: book.title);
+
+  await showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Rename Book'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: 'Book Title',
+          border: OutlineInputBorder(),
+        ),
+        onSubmitted: (value) async {
+          if (value.trim().isNotEmpty) {
+            Navigator.of(context).pop();
+            await _renameBook(book, value.trim(), _updateBook);
+          }
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () async {
+            if (controller.text.trim().isNotEmpty) {
+              Navigator.of(context).pop();
+              await _renameBook(book, controller.text.trim(), _updateBook);
+            }
+          },
+          child: const Text('Rename'),
+        ),
+      ],
+    ),
+  );
+
+  controller.dispose();
+}
+
+Future<void> _renameBook(
+    Book book,
+    String newTitle,
+    Function(Book) _updateBook
+    ) async {
+  final updatedBook = book.copyWith(title: newTitle);
+  await BookPersistenceService.updateBook(updatedBook);
+  _updateBook(updatedBook);
 }

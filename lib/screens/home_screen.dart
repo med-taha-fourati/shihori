@@ -15,6 +15,7 @@ import '../services/page_persistence.dart';
 import '../widgets/book_grid.dart';
 import '../services/book_persistence.dart';
 import 'reader_screen.dart';
+import 'settings_screen.dart';
 import '../widgets/book_bottom_popup_menu.dart';
 
 import '../providers/helper_methods.dart';
@@ -103,6 +104,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+      if (index == 2 && _isSearching) {
+        _isSearching = false;
+        _animationController.reverse();
+        _searchController.clear();
+        _filterBooks('');
+      }
     });
   }
 
@@ -398,17 +405,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
         ),
         actions: [
-          IconButton(
-            icon: AnimatedIcon(
-              icon: AnimatedIcons.search_ellipsis,
-              progress: _animationController,
+          if (_selectedIndex != 2)
+            IconButton(
+              icon: AnimatedIcon(
+                icon: AnimatedIcons.search_ellipsis,
+                progress: _animationController,
+              ),
+              onPressed: _toggleSearch,
             ),
-            onPressed: _toggleSearch,
-          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
-              // Open settings
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
             },
           ),
         ],
